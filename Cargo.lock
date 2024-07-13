@@ -609,6 +609,7 @@ dependencies = [
  "serde_bencode",
  "serde_bytes",
  "serde_json",
+ "serde_urlencoded",
  "sha1",
  "tokio",
  "tokio-util",

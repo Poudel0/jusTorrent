@@ -1,11 +1,18 @@
+#![allow(unused_imports)]
 use anyhow::Context;
 use serde::{Serialize, Deserialize};
 use std::path::Path;
 use sha1::{Digest, Sha1};
-use tokio;
+use tokio::fs::File;
+use std::net::SocketAddrV4;
+use std::path::PathBuf;
+use crate::tracker::retrieve_peers;
+use crate::peer::Handshake;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
+// use std::collections::HashSet;
+use crate::download::DownloadState;
 
 pub use hashes::Hashes;
-//  TODO: Implementation of all structs
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Torrent{
     pub announce: String,
@@ -33,6 +40,69 @@ impl Torrent {
             Keys::MultiFile{files} => files.iter().map(|f| f.length).sum(),
         }
     }
+
+    pub async fn download_all(&self,torr_path:&PathBuf, output: &PathBuf) -> anyhow::Result<()> {
+        let peers = retrieve_peers(torr_path).await.unwrap();
+        let mut state = DownloadState::new(self.info.pieces.0.len());
+        
+        let mut output_file = File::create(output.join(&self.info.name)).await?;
+        
+        for (piece_index, _) in self.info.pieces.0.iter().enumerate() {
+            if !state.is_piece_complete(piece_index) {
+                let piece_data = self.download_piece(&peers[0], piece_index).await?;
+                output_file.write_all(&piece_data).await?;
+                state.mark_piece_complete(piece_index);
+                println!("Downloaded piece {}", piece_index);
+            }
+        }
+
+        println!("Download complete!");
+        Ok(())
+    }
+
+    async fn download_piece(&self, peer: &SocketAddrV4, piece_index: usize) -> anyhow::Result<Vec<u8>> {
+        let mut stream = tokio::net::TcpStream::connect(peer).await?;
+        
+        // Perform handshake
+        let mut handshake = Handshake::new(self.info_hash(), *b"Justorrent-alphatest");
+        // ... (handshake code as in the Handshake command)
+         {
+                let handshake_bytes =
+                    &mut handshake as *mut Handshake as *mut [u8; std::mem::size_of::<Handshake>()];
+                // Safety: Handshake is a POD with repr(c) and repr(packed)
+                let handshake_bytes: &mut [u8; std::mem::size_of::<Handshake>()] =
+                    unsafe { &mut *handshake_bytes };
+                peer.write_all(handshake_bytes)
+                    .await
+                    .context("write handshake")?;
+                peer.read_exact(handshake_bytes)
+                    .await
+                    .context("read handshake")?;
+            }
+            assert_eq!(handshake.length, 19);
+            assert_eq!(&handshake.bittorrent, b"BitTorrent protocol");
+            
+
+        // Request the piece
+        let request = construct_request_message(piece_index, 0, self.info.plength);
+        stream.write_all(&request).await?;
+
+        // Read the piece
+        let mut piece_data = Vec::new();
+        stream.read_to_end(&mut piece_data).await?;
+
+        Ok(piece_data)
+    }
+
+    pub fn construct_request_message(index: usize, begin: u32, length: u32) -> Vec<u8> {
+    let mut message = Vec::new();
+    message.extend_from_slice(&(13u32).to_be_bytes()); // Length prefix
+    message.push(6u8); // Message ID for "request"
+    message.extend_from_slice(&(index as u32).to_be_bytes());
+    message.extend_from_slice(&begin.to_be_bytes());
+    message.extend_from_slice(&length.to_be_bytes());
+    message
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -56,12 +126,12 @@ pub enum Keys{
     },
 
     MultiFile{
-        files: Vec<File>, // Otherwise, multifile as a directory structure
+        files: Vec<TorrentFile>, // Otherwise, multifile as a directory structure
     }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct File{
+pub struct TorrentFile{
     pub length: usize,
 
     pub path: Vec<String>,

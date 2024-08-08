@@ -45,11 +45,7 @@ enum Command {
 
 
 
-// fn decode_bencoded_value(encoded_value: &str)-> (serde_json::Value,&str){
-//     match encoded_value.chars().next(){
 
-//     }
-// }
 #[tokio::main]
 async fn main()-> anyhow::Result<()> {
     let args = Args::parse();
@@ -82,16 +78,7 @@ async fn main()-> anyhow::Result<()> {
            }
         }
     Command::Handshake { torrent, peer } => {
-        // let t = Torrent::read(&torrent).await.context("Reading torrent file")?;
-        // // let state = Arc::new(Mutex::new(DownloadState::new()));
-        // // let state
-        // let peers = retrieve_peers(torrent.clone()).await.context("Retrieving peers")?;
-        // if let Some(peer) = peers.first() {
-        //     let addr = peer.parse().context("Parsing peer address")?;
-        //     connect_to_peer(addr, &t).await.context("Connecting to peer")?;
-        // } else {
-        //     println!("No peers found");
-        // }
+       
             let t = Torrent::read(&torrent).await?;
 
             let info_hash = t.info_hash();
@@ -121,13 +108,7 @@ async fn main()-> anyhow::Result<()> {
 
 
     Command::Download {  torrent, output }=>{   
-        // let torr_file = Torrent::read(torrent).await?;
-
-        // // if !output.exists(){
-        // //     tokio::fs::create_dir_all(&output).await?;
-        // // }
-
-        // let files = torr_file.download_all(&output).await;
+       
 
         let torr_file = Torrent::read(&torrent).await?;
         let download_state = torr_file.download_all(&torrent, &output).await?;

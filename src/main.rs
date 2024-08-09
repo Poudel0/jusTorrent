@@ -5,14 +5,14 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     time::Duration,
-    io::ErrorKind,
+    // io::ErrorKind,
     
 };
 
 use anyhow::Context;
 use clap::Parser;
-use tokio::io::AsyncWriteExt;
-use tokio::fs;
+// use tokio::io::AsyncWriteExt;
+// use tokio::fs;
 
 /// Simple program to greet a person
 #[derive(clap::Parser, Debug)]
@@ -212,14 +212,14 @@ async fn download_piece(
     Ok(())
 }
 
-async fn ensure_directory_exists(out_path: &PathBuf) -> anyhow::Result<()> {
-    if let Some(parent) = out_path.parent() {
-        fs::create_dir_all(parent)
-            .await
-            .context(format!("unable to create directory {}", parent.display()))?;
-    }
-    Ok(())
-}
+// async fn ensure_directory_exists(out_path: &PathBuf) -> anyhow::Result<()> {
+//     if let Some(parent) = out_path.parent() {
+//         fs::create_dir_all(parent)
+//             .await
+//             .context(format!("unable to create directory {}", parent.display()))?;
+//     }
+//     Ok(())
+// }
 
 async fn download(out_path: impl AsRef<Path>, path: impl AsRef<Path>) -> anyhow::Result<()> {
     // 1) Read the torrent file to get the tracker URL
